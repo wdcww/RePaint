@@ -69,6 +69,10 @@ def load_data_inpa(
     gt_paths = _list_image_files_recursively(gt_dir)
     mask_paths = _list_image_files_recursively(mask_dir)
 
+    # 如果只有一张mask图，重复使用
+    if len(mask_paths) == 1 and len(gt_paths) > 1:
+        mask_paths = [mask_paths[0]] * len(gt_paths)
+
     assert len(gt_paths) == len(mask_paths)
 
     classes = None
@@ -157,6 +161,16 @@ class ImageDatasetInpa(Dataset):
         return len(self.local_gts)
 
     def __getitem__(self, idx):
+        """
+        读取、处理和返回图像及其掩码,
+        返回一个字典:
+        {
+        'GT': arr_gt,          # 处理后的真实图像
+        'GT_name': name,      # 真实图像的文件名
+        'gt_keep_mask': arr_mask,  # 处理后的掩码
+        'y': 类标签 (可选)    # 类标签
+        }
+        """
         gt_path = self.local_gts[idx]
         pil_gt = self.imread(gt_path)
 

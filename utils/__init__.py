@@ -13,7 +13,11 @@
 # limitations under the License.
 #
 # This repository was forked from https://github.com/openai/guided-diffusion, which is under the MIT license
-
+"""
+txtread(path)：读取指定路径的文本文件内容，并返回为字符串。
+yamlread(path)：调用 txtread 函数读取 YAML 文件，并使用 yaml.safe_load 解析其内容，返回为 Python 对象。
+imwrite(path, img)：将给定的图像数组（img）保存为指定路径的图像文件。
+"""
 import yaml
 import os
 from PIL import Image

@@ -23,6 +23,10 @@ from collections import defaultdict
 from os.path import isfile, expanduser
 
 def to_file_ext(img_names, ext):
+    """
+    该函数接受一个图像文件名列表 (img_names) 和一个文件扩展名 (ext) 作为参数。
+    构造新的文件名（将原文件名的扩展名替换为 ext），并将其添加到 img_names_out 列表中。
+    """
     img_names_out = []
     for img_name in img_names:
         splits = img_name.split('.')

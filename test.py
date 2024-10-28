@@ -46,6 +46,9 @@ from guided_diffusion.script_util import (
 )  # noqa: E402
 
 def toU8(sample):
+    """
+    将张量转换为 8 位无符号整数（uint8）格式的 NumPy 数组，表示处理后的图像数据
+    """
     if sample is None:
         return sample
 
@@ -58,7 +61,7 @@ def toU8(sample):
 
 def main(conf: conf_mgt.Default_Conf):
 
-    print("Start", conf['name'])
+    print("Start", conf['name']) # 'name'就是confs里的.yaml文件的名字
 
     device = dist_util.dev(conf.get('device'))
 
@@ -73,6 +76,7 @@ def main(conf: conf_mgt.Default_Conf):
     model.to(device)
     if conf.use_fp16:
         model.convert_to_fp16()
+
     model.eval()
 
     show_progress = conf.show_progress
