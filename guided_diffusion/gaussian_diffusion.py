@@ -105,6 +105,12 @@ class GaussianDiffusion:
     :param rescale_timesteps: if True, pass floating point timesteps into the
                               model so that they are always scaled like in the
                               original paper (0 to 1000).
+
+    betas：每个扩散时间步长的beta的一维numpy数组，从T开始到1。
+    model_mean_type：决定模型输出均值的 ModelMeanType。
+    model_var_type: 决定如何输出方差的 ModelVarType。
+    loss_type: 确定要使用的损失函数的 LossType。
+    rescale_timesteps: 如果为 True，则将浮点时间步传递到模型，以便它们始终像在原论文（0 到 1000）。
     """
 
     def __init__(
@@ -344,6 +350,16 @@ class GaussianDiffusion:
         :return: a dict containing the following keys:
                  - 'sample': a random sample from the model.
                  - 'pred_xstart': a prediction of x_0.
+
+        在给定的时间步长从模型中采样 x_{t-1}。
+        model：要从中采样的模型。
+        x：x_{t-1} 处的当前张量。
+        t：t 的值，从 0 开始，表示第一个扩散步骤。
+        clip_denoised：如果为 True，则将 x_start 预测剪辑到 [-1, 1]。
+        denoised_fn：如果不是 None，则在用于采样之前应用于 x_start 预测的函数。
+        cond_fn：如果不是 None，则这是一个作用类似于模型的梯度函数。
+        model_kwargs：如果不是 None，则传递给模型的额外关键字参数字典。这可用于条件。
+        return包含['sample'：来自模型的随机样本][‘pred_xstart’：x_0 的预测]的字典.
         """
         noise = th.randn_like(x)
 
@@ -424,21 +440,29 @@ class GaussianDiffusion:
         """
         Generate samples from the model.
 
-        :param model: the model module.
-        :param shape: the shape of the samples, (N, C, H, W).
+        :param model: the model module.模型模块。
+        :param shape: the shape of the samples, (N, C, H, W). 样本的形状（N、C、H、W）
         :param noise: if specified, the noise from the encoder to sample.
                       Should be of the same shape as `shape`.
+                      如果指定，则为来自编码器采样的噪声。应该与“shape”具有相同的形状
         :param clip_denoised: if True, clip x_start predictions to [-1, 1].
+                      如果为 True，则将 x_start 预测剪辑为 [-1, 1]。
         :param denoised_fn: if not None, a function which applies to the
             x_start prediction before it is used to sample.
+            如果不是 None，则适用于x_start 在用于采样之前进行预测。
         :param cond_fn: if not None, this is a gradient function that acts
                         similarly to the model.
+                        如果不是 None，这是一个起作用的梯度函数(与模型类似。)
         :param model_kwargs: if not None, a dict of extra keyword arguments to
             pass to the model. This can be used for conditioning.
+            如果不是 None，则为额外关键字参数的字典传递给模型。这可以用于调节。
         :param device: if specified, the device to create the samples on.
                        If not specified, use a model parameter's device.
+                       如果指定，则为在其上创建示例的设备。如果未指定，则使用模型参数的设备。
         :param progress: if True, show a tqdm progress bar.
+                       如果为 True，则显示 tqdm 进度条。
         :return: a non-differentiable batch of samples.
+                返回一批不可微分的样本。
         """
         final = None
         for sample in self.p_sample_loop_progressive(
@@ -476,10 +500,12 @@ class GaussianDiffusion:
         """
         Generate samples from the model and yield intermediate samples from
         each timestep of diffusion.
-
         Arguments are the same as p_sample_loop().
         Returns a generator over dicts, where each dict is the return value of
         p_sample().
+        从模型生成样本，并从每个扩散时间步生成中间样本。
+        参数与 p_sample_loop() 相同。
+        返回一个字典生成器，其中每个字典都是 p_sample() 的返回值。
         """
         if device is None:
             device = next(model.parameters()).device
@@ -545,12 +571,17 @@ class GaussianDiffusion:
 def _extract_into_tensor(arr, timesteps, broadcast_shape):
     """
     Extract values from a 1-D numpy array for a batch of indices.
+    从1-D numpy数组中提取一批索引的值。
 
     :param arr: the 1-D numpy array.
+                1-D numpy 数组
     :param timesteps: a tensor of indices into the array to extract.
+                     要提取到数组中的索引张量。
     :param broadcast_shape: a larger shape of K dimensions with the batch
                             dimension equal to the length of timesteps.
+                            一个K维的较大形状，批处理维度等于时间步长的长度。
     :return: a tensor of shape [batch_size, 1, ...] where the shape has K dims.
+            return形状为 [batch_size, 1, ...] 的张量，其中形状有 K 个维度。
     """
     res = th.from_numpy(arr).to(device=timesteps.device)[timesteps].float()
     while len(res.shape) < len(broadcast_shape):

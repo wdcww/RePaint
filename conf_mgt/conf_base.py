@@ -46,9 +46,16 @@ def write_images(imgs, img_names, dir_path):
 
 
 class NoneDict(defaultdict):
+    """
+    此类继承自defaultdict
+    defaultdict 是 Python 标准库 collections 模块中的一个字典子类。
+    与普通字典不同，defaultdict 允许你为字典定义一个默认值，
+    当访问一个不存在的键时，它会自动使用这个默认值，而不是抛出 KeyError
+    """
     def __init__(self):
         super().__init__(self.return_None)
 
+    # 使用self.return_None作为默认工厂函数，如果访问的键不存在，返回None，而不是抛出KeyError
     @staticmethod
     def return_None():
         return None
@@ -62,21 +69,30 @@ class Default_Conf(NoneDict):
         pass
 
     def get_dataloader(self, dset='train', dsName=None, batch_size=None, return_dataset=False):
+        """
+        参数:
+        dset：指定数据集的类型，默认为 'train'（训练集）。
+        dsName：数据集的名称，默认为 None。
+        batch_size：批处理大小，默认为 None。
+        return_dataset：是否返回数据集对象本身，默认为 False。
+        """
 
-        if batch_size is None:
-            batch_size = self.batch_size
-
+        # if batch_size is None:
+        #     batch_size = self.batch_size
+        # print("batch_size：",end='')
+        # print(batch_size)
         candidates = self['data'][dset]
         ds_conf = candidates[dsName].copy()
 
         if ds_conf.get('mask_loader', False):
+            # 从 ds_conf 字典中获取键 'mask_loader' 对应的值。如果该键不存在，则返回默认值 False
             from guided_diffusion.image_datasets import load_data_inpa
             return load_data_inpa(**ds_conf, conf=self)
         else:
             raise NotImplementedError()
 
-    def get_debug_variance_path(self):
-        return os.path.expanduser(os.path.join(self.get_default_eval_conf()['paths']['root'], 'debug/debug_variance'))
+    # def get_debug_variance_path(self): # 这个没有用到，先注释起来
+    #     return os.path.expanduser(os.path.join(self.get_default_eval_conf()['paths']['root'], 'debug/debug_variance'))
 
     @ staticmethod
     def device():
@@ -110,6 +126,9 @@ class Default_Conf(NoneDict):
             write_images(lrs, img_names, lrs_dir_path)
 
     def get_default_eval_name(self):
+        """
+
+        """
         candidates = self['data']['eval'].keys()
         if len(candidates) != 1:
             raise RuntimeError(

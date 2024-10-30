@@ -23,6 +23,14 @@ import numpy as np
 from torch.utils.data import DataLoader, Dataset
 
 def load_data_yield(loader):
+    """
+    这个函数的主要用途是在需要连续获取数据的场景中，不断地从给定的loader中获取数据,
+    yield from loader 会逐个返回 loader 中的每个数据项，直到 loader 迭代完毕.
+
+    例如: 在训练过程中，当你希望在每个 epoch 中循环使用数据集而不需要重新初始化数据加载器时，它会非常方便。
+    使用这个函数时，可以通过 next() 来获取下一个数据批次，而不会因为数据加载器迭代完毕而停止。
+    这样可以有效地管理内存并提高数据读取的灵活性。
+    """
     while True:
         yield from loader
 
@@ -61,6 +69,19 @@ def load_data_inpa(
     :param deterministic: if True, yield results in a deterministic order.
     :param random_crop: if True, randomly crop the images for augmentation.
     :param random_flip: if True, randomly flip the images for augmentation.
+
+    对于数据集，创建一个基于（图像、kwargs）对的生成器。
+    每个图像都是一个 NCHW 浮点张量，并且 kwargs 字典包含零个或多个键，每个键都映射到自己的批处理张量。
+    kwargs字典可用于类标签，在这种情况下键是“y”值是类标签的整数张量。
+
+    data_dir: 数据集目录。
+    batch_size: 每个返回对的批量大小。
+    image_size: 图像调整后的大小。
+    class_cond：如果为 True，则在类的返回字典中包含“y”键标签。如果类不可获取但还是True，则将引发异常。
+    deterministic：如果为True，则产生确定性顺序的结果。
+    random_crop: 如果为 True，则随机裁剪图像以进行增强。
+    random_flip: 如果为 True，则随机翻转图像以进行增强。
+    return_dataloader: 如果为False,那么使用load_data_yield(loader) 如果为True,直接返回loader
     """
 
     gt_dir = os.path.expanduser(gt_path)
@@ -93,13 +114,15 @@ def load_data_inpa(
         conf=conf,
         offset=offset
     )
-
+    # deterministic 也就是决定 shuffle
     if deterministic:
+        # True时不打乱,shuffle=False
         loader = DataLoader(
             dataset, batch_size=batch_size, shuffle=False, num_workers=1, drop_last=drop_last
         )
 
     else:
+        # False时打乱,shuffle=True
         loader = DataLoader(
             dataset, batch_size=batch_size, shuffle=True, num_workers=1, drop_last=drop_last
         )

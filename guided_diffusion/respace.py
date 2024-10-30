@@ -97,10 +97,13 @@ class SpacedDiffusion(GaussianDiffusion):
                                            **kwargs)  # pylint: disable=missing-kwoa
 
         if conf.respace_interpolate:
+            print("respace.py--111")
             new_betas = resample_betas(
                 kwargs["betas"], int(conf.timestep_respacing))
             self.timestep_map = list(range(len(new_betas)))
         else:
+            print("respace.py--222")
+            print(conf.respace_interpolate)
             self.timestep_map = []
             new_betas = []
             last_alpha_cumprod = 1.0
