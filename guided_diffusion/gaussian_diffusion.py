@@ -32,6 +32,7 @@ from guided_diffusion.scheduler import get_schedule_jump
 
 def get_named_beta_schedule(schedule_name, num_diffusion_timesteps, use_scale):
     """
+    获得pre-defined beta
     Get a pre-defined beta schedule for the given name.
 
     The beta schedule library consists of beta schedules which remain similar
@@ -339,6 +340,7 @@ class GaussianDiffusion:
 
         :param model: the model to sample from.
         :param x: the current tensor at x_{t-1}.
+                  传进来的x_{t-1}处的当前张量
         :param t: the value of t, starting at 0 for the first diffusion step.
         :param clip_denoised: if True, clip the x_start prediction to [-1, 1].
         :param denoised_fn: if not None, a function which applies to the
@@ -351,17 +353,32 @@ class GaussianDiffusion:
                  - 'sample': a random sample from the model.
                  - 'pred_xstart': a prediction of x_0.
 
-        在给定的时间步长从模型中采样 x_{t-1}。
+        在给定的时间步长【合成】 x_{t-1}。
+
         model：要从中采样的模型。
-        x：x_{t-1} 处的当前张量。
+
+        x：传进来的x_{t-1}处的当前张量。
+
         t：t 的值，从 0 开始，表示第一个扩散步骤。
+
         clip_denoised：如果为 True，则将 x_start 预测剪辑到 [-1, 1]。
+
         denoised_fn：如果不是 None，则在用于采样之前应用于 x_start 预测的函数。
+
         cond_fn：如果不是 None，则这是一个作用类似于模型的梯度函数。
+
         model_kwargs：如果不是 None，则传递给模型的额外关键字参数字典。这可用于条件。
+
+        meas_fn: （可选）用于度量的函数（未在代码中使用）。
+
+        pred_xstart: （可选）对 x_{0} 的预测，若存在则使用。
+
+        idx_wall: （可选）用于墙的索引（未在代码中使用）
+
         return包含['sample'：来自模型的随机样本][‘pred_xstart’：x_0 的预测]的字典.
+
         """
-        noise = th.randn_like(x)
+
 
         if conf.inpa_inj_sched_prev:
 
@@ -372,8 +389,7 @@ class GaussianDiffusion:
 
                 gt = model_kwargs['gt']
 
-                alpha_cumprod = _extract_into_tensor(
-                    self.alphas_cumprod, t, x.shape)
+                alpha_cumprod = _extract_into_tensor(self.alphas_cumprod, t, x.shape)
 
                 if conf.inpa_inj_sched_prev_cumnoise:
                     weighed_gt = self.get_gt_noised(gt, int(t[0].item()))
@@ -386,15 +402,7 @@ class GaussianDiffusion:
 
                     weighed_gt = gt_part + noise_part
 
-                x = (
-                    gt_keep_mask * (
-                        weighed_gt
-                    )
-                    +
-                    (1 - gt_keep_mask) * (
-                        x
-                    )
-                )
+                x = ( gt_keep_mask * (weighed_gt)+(1 - gt_keep_mask) * (x) )
 
 
         out = self.p_mean_variance(
@@ -415,11 +423,13 @@ class GaussianDiffusion:
                 cond_fn, out, x, t, model_kwargs=model_kwargs
             )
 
-        sample = out["mean"] + nonzero_mask * \
-            th.exp(0.5 * out["log_variance"]) * noise
+        noise = th.randn_like(x)
+        sample = out["mean"] + nonzero_mask * th.exp(0.5 * out["log_variance"]) * noise
 
         result = {"sample": sample,
-                  "pred_xstart": out["pred_xstart"], 'gt': model_kwargs.get('gt')}
+                  "pred_xstart": out["pred_xstart"],
+                  'gt': model_kwargs.get('gt')
+                  }
 
         return result
 
@@ -506,6 +516,7 @@ class GaussianDiffusion:
         从模型生成样本，并从每个扩散时间步生成中间样本。
         参数与 p_sample_loop() 相同。
         返回一个字典生成器，其中每个字典都是 p_sample() 的返回值。
+        :return: 一个字典
         """
         if device is None:
             device = next(model.parameters()).device
@@ -515,7 +526,7 @@ class GaussianDiffusion:
         else:
             image_after_step = th.randn(*shape, device=device)
 
-        debug_steps = conf.pget('debug.num_timesteps')
+        # debug_steps = conf.pget('debug.num_timesteps')
 
         self.gt_noises = None  # reset for next image
 
@@ -539,6 +550,7 @@ class GaussianDiffusion:
                                      device=device)
 
                 if t_cur < t_last:  # reverse
+                    # 只要cur时间步是比上一个时间步小，就是在正常推理
                     with th.no_grad():
                         image_before_step = image_after_step.clone()
                         out = self.p_sample(
@@ -559,13 +571,15 @@ class GaussianDiffusion:
 
                         yield out
 
-                else:
+                else: # 要去做Resampling
                     t_shift = conf.get('inpa_inj_time_shift', 1)
 
                     image_before_step = image_after_step.clone()
-                    image_after_step = self.undo(
-                        image_before_step, image_after_step,
-                        est_x_0=out['pred_xstart'], t=t_last_t+t_shift, debug=False)
+                    image_after_step = self.undo(image_before_step,
+                                                 image_after_step,
+                                                 est_x_0=out['pred_xstart'],
+                                                 t=t_last_t+t_shift,
+                                                 debug=False)
                     pred_xstart = out["pred_xstart"]
 
 def _extract_into_tensor(arr, timesteps, broadcast_shape):
