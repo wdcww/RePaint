@@ -64,8 +64,8 @@ schedule_jump_params:
   jump_length: 10
   jump_n_sample: 10
 data:
-  eval:
-    paper_face_mask:
+  eval: #dset
+    paper_face_mask: #eval_name
       mask_loader: true
       gt_path: ./data/datasets/gts/face
       mask_path: ./data/datasets/gt_keep_masks/face
