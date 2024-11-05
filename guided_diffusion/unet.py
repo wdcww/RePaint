@@ -329,6 +329,13 @@ class AttentionBlock(nn.Module):
         return (x + h).reshape(b, c, *spatial)
 
 
+def count_flops_attn(model, _x, y):
+    """
+    为了此.py文件不报错
+    """
+    pass
+
+
 class QKVAttentionLegacy(nn.Module):
     """
     A module which performs QKV attention. Matches legacy QKVAttention + input/ouput heads shaping

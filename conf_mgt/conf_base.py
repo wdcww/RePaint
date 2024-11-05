@@ -77,8 +77,9 @@ class Default_Conf(NoneDict):
         return_dataset：是否返回数据集对象本身，默认为 False。
         """
 
-        # if batch_size is None:
-        #     batch_size = self.batch_size
+        if batch_size is None:
+            batch_size = self.batch_size
+
         # print("batch_size：",end='')
         # print(batch_size)
         candidates = self['data'][dset]
@@ -99,12 +100,15 @@ class Default_Conf(NoneDict):
         return 'cuda' if torch.cuda.is_available() else 'cpu'
 
     def eval_imswrite(self, srs=None, img_names=None, dset=None, name=None, ext='png', lrs=None, gts=None, gt_keep_masks=None, verify_same=True):
+        """
+        用于将图像数据写入指定的目录
+        """
         img_names = to_file_ext(img_names, ext)
 
         if dset is None:
             dset = self.get_default_eval_name()
 
-        max_len = self['data'][dset][name].get('max_len')
+        # max_len = self['data'][dset][name].get('max_len') # 这个没有用到，先注释起来
 
         if srs is not None:
             sr_dir_path = expanduser(self['data'][dset][name]['paths']['srs'])
@@ -135,17 +139,17 @@ class Default_Conf(NoneDict):
                 f"Need exactly one candidate for {self.name}: {candidates}")
         return list(candidates)[0]
 
-    def pget(self, name, default=None):
-        if '.' in name:
-            names = name.split('.')
-        else:
-            names = [name]
-
-        sub_dict = self
-        for name in names:
-            sub_dict = sub_dict.get(name, default)
-
-            if sub_dict == None:
-                return default
-
-        return sub_dict
+    # def pget(self, name, default=None):
+    #     if '.' in name:
+    #         names = name.split('.')
+    #     else:
+    #         names = [name]
+    #
+    #     sub_dict = self
+    #     for name in names:
+    #         sub_dict = sub_dict.get(name, default)
+    #
+    #         if sub_dict == None:
+    #             return default
+    #
+    #     return sub_dict

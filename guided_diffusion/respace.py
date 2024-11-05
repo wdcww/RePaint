@@ -98,11 +98,11 @@ class SpacedDiffusion(GaussianDiffusion):
 
         if conf.respace_interpolate:
             print("respace.py--111")
-            new_betas = resample_betas(
-                kwargs["betas"], int(conf.timestep_respacing))
-            self.timestep_map = list(range(len(new_betas)))
+            # new_betas = resample_betas(
+            #     kwargs["betas"], int(conf.timestep_respacing))
+            # self.timestep_map = list(range(len(new_betas)))
         else:
-            print("respace.py--222")
+            print("respace.py--222 ,conf.respace_interpolate: ",end='')
             print(conf.respace_interpolate)
             self.timestep_map = []
             new_betas = []
