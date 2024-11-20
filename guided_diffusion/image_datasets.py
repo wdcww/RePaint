@@ -53,23 +53,6 @@ def load_data_inpa(
     ** kwargs
 ):
     """
-    For a dataset, create a generator over (images, kwargs) pairs.
-
-    Each images is an NCHW float tensor, and the kwargs dict contains zero or
-    more keys, each of which map to a batched Tensor of their own.
-    The kwargs dict can be used for class labels, in which case the key is "y"
-    and the values are integer tensors of class labels.
-
-    :param data_dir: a dataset directory.
-    :param batch_size: the batch size of each returned pair.
-    :param image_size: the size to which images are resized.
-    :param class_cond: if True, include a "y" key in returned dicts for class
-                       label. If classes are not available and this is true, an
-                       exception will be raised.
-    :param deterministic: if True, yield results in a deterministic order.
-    :param random_crop: if True, randomly crop the images for augmentation.
-    :param random_flip: if True, randomly flip the images for augmentation.
-
     对于数据集，创建一个基于（图像、kwargs）对的生成器。
     每个图像都是一个 NCHW 浮点张量，并且 kwargs 字典包含零个或多个键，每个键都映射到自己的批处理张量。
     kwargs字典可用于类标签，在这种情况下键是“y”值是类标签的整数张量。
@@ -82,6 +65,8 @@ def load_data_inpa(
     random_crop: 如果为 True，则随机裁剪图像以进行增强。
     random_flip: 如果为 True，则随机翻转图像以进行增强。
     return_dataloader: 如果为False,那么使用load_data_yield(loader) 如果为True,直接返回loader
+    drop_last: DataLoader的参数，当数据集中的样本数量不能被 batch_size 整除时，是否丢弃最后一个不足完整批次的样本。
+    offset: 如果数据集需要动态划分，offset提供了一种简单的实现方式。例如：offset=2 时，跳过前两个数据，从第三个数据开始加载
     """
 
     gt_dir = os.path.expanduser(gt_path)
@@ -177,11 +162,18 @@ class ImageDatasetInpa(Dataset):
         self.return_dict = return_dict
         self.max_len = max_len
 
-    def __len__(self):
-        if self.max_len is not None:
-            return self.max_len
+    # def __len__(self):
+    #     if self.max_len is not None:
+    #         return self.max_len
+    #
+    #     return len(self.local_gts)
 
-        return len(self.local_gts)
+    def __len__(self):
+        # 如果 max_len 是 0，则返回 len(self.local_gts)
+        if self.max_len == 0:
+            return len(self.local_gts)
+        # 否则，返回 max_len 的值
+        return self.max_len
 
     def __getitem__(self, idx):
         """
@@ -191,7 +183,7 @@ class ImageDatasetInpa(Dataset):
         'GT': arr_gt,          # 处理后的真实图像
         'GT_name': name,      # 真实图像的文件名
         'gt_keep_mask': arr_mask,  # 处理后的掩码
-        'y': 类标签 (可选)    # 类标签
+        'y': 类标签 (可选)    # 类标签 (_____________________这里还没有加上_____________________)
         }
         """
         gt_path = self.local_gts[idx]
