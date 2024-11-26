@@ -1,0 +1,39 @@
+计算fid
+
+pip install pytorch-fid
+
+
+log2.
+├─gt_masked
+     └─ 000001.png
+└─inpainted
+      └─ 000001.png
+
+(D:\myenv) PS D:\py_github\RePaint> python -m pytorch_fid log2/gt_masked log2/inpainted
+Warning: batch size is bigger than the data size. Setting batch size to data size
+100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1/1 [00:05<00:00,  5.43s/it]
+Warning: batch size is bigger than the data size. Setting batch size to data size
+100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1/1 [00:05<00:00,  5.02s/it]
+FID:  224.7535773066053
+Warning: batch size is bigger than the data size. Setting batch size to data size 是因为我的log2/gt_masked 和 log2/inpainted 都只有一张图片
+
+
+
+log2.
+├─gt_masked
+     └─ 000000.png
+     └─ 000001.png
+└─inpainted
+      └─ 000000.png
+      └─ 000001.png
+
+(D:\myenv) PS D:\py_github\RePaint> python -m pytorch_fid log2/gt_masked log2/inpainted
+Warning: batch size is bigger than the data size. Setting batch size to data size
+100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1/1 [00:05<00:00,  5.30s/it]
+Warning: batch size is bigger than the data size. Setting batch size to data size
+100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1/1 [00:05<00:00,  5.01s/it]
+FID:  380.8678091017855
+
+你提到的那些论文中的 FID 分数很小，通常是因为在计算 FID 时，
+评估的是整个数据集的生成图像和真实图像之间的距离，而不是逐张图片的比较。
+因此，虽然单张图片可能在视觉上并不完美，但在大规模数据集的统计下， 模型的性能可能表现为较低的 FID 值。————chatgpt

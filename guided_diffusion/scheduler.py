@@ -58,8 +58,8 @@ def _check_times(times, t_0, t_T):
     # Steplength = 1
     # 这部分检查时间步之间的差值是否始终为 1，即相邻的时间步是否是连续的。
     # 如果差值不是 1，会抛出一个错误，并显示出这两个时间步的值: (t_last, t_cur)
-    for t_last, t_cur in zip(times[:-1], times[1:]):
-        assert abs(t_last - t_cur) == 1, (t_last, t_cur)
+    # for t_last, t_cur in zip(times[:-1], times[1:]):
+    #     assert abs(t_last - t_cur) == 1, (t_last, t_cur)
 
     # Value range
     for t in times:
@@ -75,7 +75,7 @@ def _check_times(times, t_0, t_T):
 #     plt.plot(x, times)
 #     plt.show()
 
-
+# # # 这个是论文原版的resample版本的时间步
 # def get_schedule_jump(t_T,
 #                       n_sample,
 #                       jump_length,
@@ -162,68 +162,152 @@ def _check_times(times, t_0, t_T):
 #
 #     return ts
 
-# ####### 禁用Resampling版本：
-# def get_schedule_jump(t_T,n_sample=2,
-#                            jump_length=10, jump_n_sample=10,
-#                            jump2_length=1, jump2_n_sample=1,
-#                            jump3_length=1, jump3_n_sample=1,
-#                            start_resampling=100000000):
+# ### 只有跳步，没有Resample
+# def get_schedule_jump(t_T,
+#                       n_sample,
+#                       jump_length,
+#                       jump_n_sample,
+#                       jump2_length=1,
+#                       jump2_n_sample=1,
+#                       jump3_length=1,
+#                       jump3_n_sample=1,
+#                       start_resampling=100000000):
 #     """
-#     返回值是一个递减的列表 ts，仅需要：
+#     返回值是一个列表 ts : 在每添加 5 个连续点后，跳过接下来的 5 个点。
 #     t_T : 总步数
 #     """
-#     t = t_T
 #     ts = []
-#     while t >= 1:  # while循环中,t从t_T开始递减到1,表示总的时间步数
-#         t = t - 1
+#     t = t_T - 1
+#     consecutive_count = 0 # 当前添加的连续点数
+#     while t >= 0:  # while循环中,t从t_T-1开始递减到0
 #         ts.append(t)
+#         consecutive_count += 1
+#
+#         # 每添加 5 个连续点，就跳过接下来的 5 个点
+#         if consecutive_count == 5:
+#             t -= 5  # 跳过 5 个点
+#             consecutive_count = 0  # 重置连续计数器
+#
+#         t -= 1
+#     # 添加 -1 作为最后的点
 #     ts.append(-1)
 #     _check_times(ts, -1, t_T)
+#     print("scheduler.py的ts: ", ts)
 #     return ts
 
-# ###### 简单的Resampling版本：
-def get_schedule_jump(t_T,
-                      n_sample,
-                      jump_length,
-                      jump_n_sample,
-                      jump2_length=1,
-                      jump2_n_sample=1,
-                      jump3_length=1,
-                      jump3_n_sample=1,
-                      start_resampling=100000000):
+####### 禁用Resampling版本：
+def get_schedule_jump(t_T,n_sample=2,
+                           jump_length=10, jump_n_sample=10,
+                           jump2_length=1, jump2_n_sample=1,
+                           jump3_length=1, jump3_n_sample=1,
+                           start_resampling=100000000):
     """
-    返回值是一个列表 ts，我搞一个最简单的，仅需要：
+    返回值是一个递减的列表 ts，仅需要：
     t_T : 总步数
-
-    jump_length : 在所有的t_T步里，是jump_length的倍数的点算一个‘特殊点’，但最接近t_T那个倍数值点不算'特殊点'
-
-    jump_n_sample ：在这些'特殊点'操作几次？jump_n_sample-1 次
     """
-    # 初始化一个空字典jumps
-    jumps = {}
-#     使用for循环遍历从0开始，到小于t_T - jump_length为止，步长为jump_length的整数序列
-    for j in range(0, t_T - jump_length, jump_length):
-        # 对于序列中的每个j，字典jumps的键j的值都是下面的 jump_n_sample - 1
-        jumps[j] = jump_n_sample - 1
-
     t = t_T
     ts = []
-
     while t >= 1:  # while循环中,t从t_T开始递减到1,表示总的时间步数
         t = t - 1
         ts.append(t)
-
-        if (jumps.get(t, 0) > 0 and t <= start_resampling - jump_length):
-            jumps[t] = jumps[t] - 1
-            for _ in range(jump_length):
-                t = t + 1
-                ts.append(t)
-
     ts.append(-1)
-
     _check_times(ts, -1, t_T)
-    # print("scheduler.py的ts:  ",ts)
     return ts
+
+# ###### 简单的Resampling版本：
+# def get_schedule_jump(t_T,
+#                       n_sample,
+#                       jump_length,
+#                       jump_n_sample,
+#                       jump2_length=1,
+#                       jump2_n_sample=1,
+#                       jump3_length=1,
+#                       jump3_n_sample=1,
+#                       start_resampling=100000000):
+#     """
+#     返回值是一个列表 ts，我搞一个最简单的，仅需要：
+#     t_T : 总步数
+#
+#     jump_length : 在所有的t_T步里，是jump_length的倍数的点算一个‘特殊点’，但最接近t_T那个倍数值点不算'特殊点'
+#                   在'特殊点'处，就是处于Resample状态，每进入Resample状态，需要给当前的t加jump_length个点。
+#
+#     jump_n_sample ：对于某个我们能取到的'特殊点'，该点一共会经历 jump_n_sample-1 次Resample状态
+#     """
+#     # 初始化一个空字典jumps
+#     jumps = {}
+# #     使用for循环遍历从0开始，到小于t_T - jump_length为止，步长为jump_length的整数序列
+#     for j in range(0, t_T - jump_length, jump_length):
+#         # 对于序列中的每个j，字典jumps的键j的值都是下面的 jump_n_sample - 1
+#         jumps[j] = jump_n_sample - 1
+#
+#     t = t_T
+#     ts = []
+#
+#     while t >= 1:  # while循环中,t从t_T开始递减到1,表示总的时间步数
+#         t = t - 1
+#         ts.append(t)
+#
+#         if (jumps.get(t, 0) > 0 and t <= start_resampling - jump_length):
+#             jumps[t] = jumps[t] - 1
+#             for _ in range(jump_length):
+#                 t = t + 1
+#                 ts.append(t)
+#
+#     ts.append(-1)
+#
+#     _check_times(ts, -1, t_T)
+#     # print("scheduler.py的ts:  ",ts)
+#     return ts
+
+
+# def get_schedule_jump(t_T,
+#                       n_sample,
+#                       jump_length,
+#                       jump_n_sample,
+#                       jump2_length=1,
+#                       jump2_n_sample=1,
+#                       jump3_length=1,
+#                       jump3_n_sample=1,
+#                       start_resampling=100000000):
+#     """
+#     返回值是一个列表 ts : 结合以下逻辑：
+#     1. 每添加 5 个连续点后，跳过接下来的 5 个点。
+#     1. 对于某个是jump_length的倍数点的‘特殊点’(最接近t_T那个倍数值点不算'特殊点')，
+#        如果能够取到该点，
+#        那么该点会 历经jump_n_sample-1次 Resample状态，每次Resample状态 会加jump_length个点
+#     """
+#     # 初始化特殊点的字典
+#     jumps = {}
+#     for j in range(0, t_T - jump_length, jump_length):
+#         jumps[j] = jump_n_sample - 1
+#
+#     ts = []
+#     t = t_T - 1
+#     consecutive_count = 0  # 当前添加的连续点数
+#
+#     while t >= 0:  # t 从 t_T-1 开始递减到 0
+#         ts.append(t)
+#         consecutive_count += 1
+#
+#         # 每添加 5 个连续点，就跳过接下来的 5 个点
+#         if consecutive_count == 5:
+#             t -= 5  # 跳过 5 个点
+#             consecutive_count = 0  # 重置连续计数器
+#
+#         t -= 1
+#
+#         # 检查是否为特殊点，执行额外增加逻辑
+#         if jumps.get(t, 0) > 0 and t <= start_resampling - jump_length:
+#             jumps[t] = jumps[t] - 1
+#             for _ in range(jump_length):
+#                 t += 1
+#                 ts.append(t)
+#
+#     # 添加 -1 作为最后的点
+#     ts.append(-1)
+#     _check_times(ts, -1, t_T)
+#     # print("scheduler.py的ts: ", ts)
+#     return ts
 
 # def get_schedule_jump_paper():
 #     t_T = 250
@@ -260,10 +344,10 @@ def get_schedule_jump_test(to_supplement=False):
        减少jump_n_sample以减少重新采样的次数。
        不是从一开始就应用重采样，而是通过设置 start_resampling 在特定时间之后应用重采样。
        """
-    ts = get_schedule_jump(t_T=20, n_sample=2,
-                           jump_length=10, jump_n_sample=10,
-                           jump2_length=1, jump2_n_sample=1,
-                           jump3_length=1, jump3_n_sample=1,
+    ts = get_schedule_jump(t_T=55, n_sample=-1,
+                           jump_length=5, jump_n_sample=10,
+                           jump2_length=-1, jump2_n_sample=-1,
+                           jump3_length=-1, jump3_n_sample=-1,
                            start_resampling=100000000)
     print(len(ts))
     print(ts) ####################################################### print一下！

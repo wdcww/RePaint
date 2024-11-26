@@ -91,6 +91,7 @@ class SpacedDiffusion(GaussianDiffusion):
         self.use_timesteps = set(use_timesteps) # space_timesteps()使用timestep_respacing压缩的
         self.original_num_steps = len(kwargs["betas"]) # 和.yml的diffusion_steps相等的1000
         self.conf = conf
+        self.is_ddpm_paper_get_xprev = conf.is_ddpm_paper_get_xprev
 
         base_diffusion = GaussianDiffusion(conf=conf,**kwargs)  # pylint: disable=missing-kwoa
 
@@ -126,7 +127,7 @@ class SpacedDiffusion(GaussianDiffusion):
     def p_mean_variance(
         self, model, *args, **kwargs
     ):  # pylint: disable=signature-differs
-        return super().p_mean_variance(self._wrap_model(model), *args, **kwargs)
+        return super().p_mean_variance(self._wrap_model(model), is_ddpm_paper_get_xprev=self.is_ddpm_paper_get_xprev,*args, **kwargs)
         # return super().p_mean_variance(self.model, *args, **kwargs)
 
     def _wrap_model(self, model):

@@ -139,6 +139,7 @@ def main(conf: conf_mgt.Default_Conf):
     #     return model(x, t, y if conf.class_cond else None, gt=gt)
 
     print("sampling...")
+    # print("test.py-----conf.is_ddpm_paper_get_xprev  ",conf.is_ddpm_paper_get_xprev)
     # all_images = [] # 没有用到,就先注释掉
 
     dset = 'eval'
@@ -218,21 +219,21 @@ def main(conf: conf_mgt.Default_Conf):
         srs = toU8(result['sample']) # srs是inpainted
         lrs = toU8(result.get('gt') * model_kwargs.get('gt_keep_mask') +
                    (-1) * th.ones_like(result.get('gt')) * (1 - model_kwargs.get('gt_keep_mask'))) #lrs是gt_masked
-        # gts = toU8(result['gt'])     # gts是gt
-        # gt_keep_masks = toU8((model_kwargs.get('gt_keep_mask') * 2 - 1)) #gt_keep_masks是gt_keep_mask
+        gts = toU8(result['gt'])     # gts是gt
+        # gt_keep_masks = toU8((model_kwargs.get('gt_keep_mask') * 1 - 1)) #gt_keep_masks是gt_keep_mask
 
         # conf.eval_imswrite(
         #     srs=srs, gts=gts, lrs=lrs, gt_keep_masks=gt_keep_masks,
         #     img_names=batch['GT_name'], dset=dset, name=eval_name, verify_same=False)
 
-        # # # gt_keep_masks()就先不看了
-        # conf.eval_imswrite(
-        #     srs=srs, gts=gts, lrs=lrs,
-        #     img_names=batch['GT_name'], dset=dset, name=eval_name, verify_same=False)
-
-        # gt和gt_keep_masks就先不看了
+        # gt_keep_masks()就先不看了
         conf.eval_imswrite(
-            srs=srs, lrs=lrs,img_names=batch['GT_name'], dset=dset, name=eval_name, verify_same=False)
+            srs=srs, gts=gts, lrs=lrs,
+            img_names=batch['GT_name'], dset=dset, name=eval_name, verify_same=False)
+
+        # # gt和gt_keep_masks就先不看了
+        # conf.eval_imswrite(
+        #     srs=srs, lrs=lrs,img_names=batch['GT_name'], dset=dset, name=eval_name, verify_same=False)
 
     print("sampling complete")
 

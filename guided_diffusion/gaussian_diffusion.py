@@ -227,6 +227,9 @@ class GaussianDiffusion:
                 (1.0 - self.alphas_cumprod_prev) * np.sqrt(alphas) / (1.0 - self.alphas_cumprod)
         )
 
+        # 测试和ddpm论文里面一样的推理公公式
+        self.one_chu_sqrt_alpha = 1.0/ np.sqrt(alphas)
+        self.one_mins_alpha_chu_sqrt_one_mins_alpha_cumprod = self.betas / np.sqrt(1.0 - self.alphas_cumprod)
 
     # def q_mean_variance
     #                   Get the distribution q(x_t | x_0).
@@ -261,9 +264,6 @@ class GaussianDiffusion:
         return posterior_mean, posterior_variance, posterior_log_variance_clipped
 
     def _predict_xstart_from_eps(self, x_t, t, eps):
-        """
-        预测噪声eps 版本
-        """
         assert x_t.shape == eps.shape
         return (
                 _extract_into_tensor(self.sqrt_recip_alphas_cumprod, t, x_t.shape) * x_t
@@ -286,7 +286,7 @@ class GaussianDiffusion:
         )
 
     def p_mean_variance(
-            self, model, x, t, clip_denoised=True, denoised_fn=None, model_kwargs=None
+            self, model, x, t, clip_denoised=True, denoised_fn=None, model_kwargs=None,is_ddpm_paper_get_xprev=False
     ):
         """
         Apply the model to get p(x_{t-1} | x_t), as well as a prediction of
@@ -383,10 +383,11 @@ class GaussianDiffusion:
                 pred_xstart = process_xstart(model_output)
             else:
                 # self.model_mean_type 是 ModelMeanType.EPSILON (当.yml文件里 predict_xstart: false) ###
-                # 模型预测的是 噪声项epsilon，
-                # 通过噪声和当前 x_t 推导出原始图像 x_0
+                # model_output 是 噪声项eps，
+                # 通过 噪声eps 和 当前x_t 推导出原始图像 x_0:pred_xstart
                 pred_xstart = process_xstart(self._predict_xstart_from_eps(x_t=x, t=t, eps=model_output))
 
+            # 最后根据 预测的x_0 和 当前x_t 得到x_t-1的 mean
             model_mean, _, _ = self.q_posterior_mean_variance(x_start=pred_xstart, x_t=x, t=t)
 
         else:
@@ -396,12 +397,25 @@ class GaussianDiffusion:
                 model_mean.shape == model_log_variance.shape == pred_xstart.shape == x.shape
         )
 
-        return {
-            "mean": model_mean,
-            "variance": model_variance,
-            "log_variance": model_log_variance,
-            "pred_xstart": pred_xstart,
-        }
+        if is_ddpm_paper_get_xprev:
+            model_output = (_extract_into_tensor(self.one_chu_sqrt_alpha, t, x.shape)
+                      * (x - model_output * _extract_into_tensor(self.one_mins_alpha_chu_sqrt_one_mins_alpha_cumprod, t,
+                                                                x.shape))
+                      )
+            return {
+                "mean": model_output,
+                "variance": model_variance,
+                "log_variance": model_log_variance,
+                "pred_xstart": pred_xstart,
+            }
+
+        else:
+            return {
+                "mean": model_mean,
+                "variance": model_variance,
+                "log_variance": model_log_variance,
+                "pred_xstart": pred_xstart,
+            }
 
     # def condition_mean(self, cond_fn, p_mean_var, x, t, model_kwargs=None):
     #     """
@@ -650,14 +664,16 @@ class GaussianDiffusion:
                 x = (gt_keep_mask * (weighed_gt) + (1 - gt_keep_mask) * (x))
                 # print(x==x_) # #######################################################
 
+
+        # out["mean"]是使用q_posterior_mean_variance算
         out = self.p_mean_variance(  # 调用这个p_mean_variance前，就会去涉及respace.py里面的那些东西
-            model,
-            x,
-            t,
-            clip_denoised=clip_denoised,
-            denoised_fn=denoised_fn,
-            model_kwargs=model_kwargs,
-        )
+                model,
+                x,
+                t,
+                clip_denoised=clip_denoised,
+                denoised_fn=denoised_fn,
+                model_kwargs=model_kwargs,
+            )
 
         nonzero_mask = (
             (t != 0).float().view(-1, *([1] * (len(x.shape) - 1)))
@@ -670,8 +686,7 @@ class GaussianDiffusion:
 
         noise = th.randn_like(x)
         sample = out["mean"] + nonzero_mask * th.exp(0.5 * out["log_variance"]) * noise
-
-        # sample = out["mean"] # ddpm不引入随机噪声时
+        # sample = _extract_into_tensor(self.one_chu_sqrt_alpha, t, x.shape)*(x - out["mean"]*_extract_into_tensor(self.one_mins_alpha_chu_sqrt_one_mins_alpha_cumprod, t, x.shape))+th.exp(0.5 * out["log_variance"]) * noise
 
         result = {"sample": sample,
                   "pred_xstart": out["pred_xstart"],
@@ -801,32 +816,32 @@ class GaussianDiffusion:
                                     debug=False)
                     pred_xstart = out["pred_xstart"]
 
-        else:
-            # Regular DDIM sampling without jump scheduling
-            indices = list(range(self.num_timesteps))[::-1]
-            if progress:
-                from tqdm.auto import tqdm
-                indices = tqdm(indices)
-
-            for i in indices:
-                t = th.tensor([i] * shape[0], device=device)
-                with th.no_grad():
-                    out = self.ddim_sample(
-                        model,
-                        img,
-                        t,
-                        clip_denoised=clip_denoised,
-                        denoised_fn=denoised_fn,
-                        cond_fn=cond_fn,
-                        model_kwargs=model_kwargs,
-                        eta=eta,
-                        conf=conf,
-                        pred_xstart=pred_xstart
-                    )
-                    img = out["sample"]
-                    pred_xstart = out["pred_xstart"]
-
-                    yield out
+        # else:
+        #     # Regular DDIM sampling without jump scheduling
+        #     indices = list(range(self.num_timesteps))[::-1]
+        #     if progress:
+        #         from tqdm.auto import tqdm
+        #         indices = tqdm(indices)
+        #
+        #     for i in indices:
+        #         t = th.tensor([i] * shape[0], device=device)
+        #         with th.no_grad():
+        #             out = self.ddim_sample(
+        #                 model,
+        #                 img,
+        #                 t,
+        #                 clip_denoised=clip_denoised,
+        #                 denoised_fn=denoised_fn,
+        #                 cond_fn=cond_fn,
+        #                 model_kwargs=model_kwargs,
+        #                 eta=eta,
+        #                 conf=conf,
+        #                 pred_xstart=pred_xstart
+        #             )
+        #             img = out["sample"]
+        #             pred_xstart = out["pred_xstart"]
+        #
+        #             yield out
 
     def ddim_sample(
             self,
