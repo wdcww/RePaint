@@ -133,16 +133,16 @@ def main(conf: conf_mgt.Default_Conf):
         lrs = toU8(result.get('gt') * model_kwargs.get('gt_keep_mask') +
                    (-1) * th.ones_like(result.get('gt')) * (1 - model_kwargs.get('gt_keep_mask'))) #lrs是gt_masked
         gts = toU8(result['gt'])     # gts是gt
-        # gt_keep_masks = toU8((model_kwargs.get('gt_keep_mask') * 1 - 1)) #gt_keep_masks是gt_keep_mask
+        gt_keep_masks = toU8((model_kwargs.get('gt_keep_mask') * 1 - 1)) #gt_keep_masks是gt_keep_mask
 
-        # conf.eval_imswrite(
-        #     srs=srs, gts=gts, lrs=lrs, gt_keep_masks=gt_keep_masks,
-        #     img_names=batch['GT_name'], dset=dset, name=eval_name, verify_same=False)
-
-        # gt_keep_masks()就先不看了
         conf.eval_imswrite(
-            srs=srs, gts=gts, lrs=lrs,
+            srs=srs, gts=gts, lrs=lrs, gt_keep_masks=gt_keep_masks,
             img_names=batch['GT_name'], dset=dset, name=eval_name, verify_same=False)
+
+        # # gt_keep_masks()就先不看了
+        # conf.eval_imswrite(
+        #     srs=srs, gts=gts, lrs=lrs,
+        #     img_names=batch['GT_name'], dset=dset, name=eval_name, verify_same=False)
 
         # # gt和gt_keep_masks就先不看了
         # conf.eval_imswrite(
@@ -155,5 +155,5 @@ def main(conf: conf_mgt.Default_Conf):
 if __name__ == "__main__":
 
     conf_arg = conf_mgt.conf_base.Default_Conf()
-    conf_arg.update(yamlread('confs/face_example1.yml'))
+    conf_arg.update(yamlread('_1.yml'))
     main(conf_arg)
