@@ -23,6 +23,7 @@ Docstrings have been added, as well as DDIM sampling and a new collection of bet
 
 import enum
 import math
+import os
 
 import numpy as np
 import torch as th
@@ -236,18 +237,18 @@ class GaussianDiffusion:
     #                   Get the distribution q(x_t | x_0).
 
 
-    # def q_sample(self, x_start, t, noise=None):
-    #     """
-    #     sample from distribution q(x_t | x_0).
-    #     """
-    #     if noise is None:
-    #         noise = th.randn_like(x_start)
-    #     assert noise.shape == x_start.shape
-    #     return (
-    #             _extract_into_tensor(self.sqrt_alphas_cumprod, t, x_start.shape) * x_start
-    #             + _extract_into_tensor(self.sqrt_one_minus_alphas_cumprod, t, x_start.shape)
-    #             * noise
-    #     )
+    def q_sample(self, x_start, t, noise=None):
+        """
+        sample from distribution q(x_t | x_0).
+        """
+        if noise is None:
+            noise = th.randn_like(x_start)
+        assert noise.shape == x_start.shape
+        return (
+                _extract_into_tensor(self.sqrt_alphas_cumprod, t, x_start.shape) * x_start
+                + _extract_into_tensor(self.sqrt_one_minus_alphas_cumprod, t, x_start.shape)
+                * noise
+        )
 
 
 
@@ -469,6 +470,7 @@ class GaussianDiffusion:
             device=None,
             progress=True,
             return_all=False,
+            resizers=None,
             conf=None
     ):
         """
@@ -509,6 +511,7 @@ class GaussianDiffusion:
                 model_kwargs=model_kwargs,
                 device=device,
                 progress=progress,
+                resizers=resizers,
                 conf=conf
         ):
             final = sample
@@ -529,6 +532,7 @@ class GaussianDiffusion:
             model_kwargs=None,
             device=None,
             progress=False,
+            resizers=None,
             conf=None
     ):
         """
@@ -589,6 +593,7 @@ class GaussianDiffusion:
                             cond_fn=cond_fn,
                             model_kwargs=model_kwargs,
                             conf=conf,
+                            resizers=resizers,
                             pred_xstart=pred_xstart
                         )
                         image_after_step = out["sample"]  # 更新状态图
@@ -618,6 +623,7 @@ class GaussianDiffusion:
             denoised_fn=None,
             cond_fn=None,
             model_kwargs=None,
+            resizers=None,
             conf=None, meas_fn=None, pred_xstart=None, idx_wall=-1
     ):
         if conf.inpa_inj_sched_prev:  # 这个是要不要去做inpainting
@@ -632,14 +638,18 @@ class GaussianDiffusion:
 
                 alpha_cumprod = _extract_into_tensor(self.alphas_cumprod, t, x.shape)
 
-
                 gt_weight = th.sqrt(alpha_cumprod)
                 gt_part = gt_weight * gt
+
+                # # # 这是对于新加的show_pic_of()调用的一个案例:
+                # if t.equal(th.tensor([3], device='cuda:0')):
+                #     self.show_pic_of(gt_part,"origin_x3.png",False)
 
                 noise_weight = th.sqrt((1 - alpha_cumprod))
                 noise_part = noise_weight * th.randn_like(x)
 
                 weighed_gt = gt_part + noise_part
+
                 x = (gt_keep_mask * (weighed_gt) + (1 - gt_keep_mask) * (x))
 
         out = self.p_mean_variance(  # 调用这个p_mean_variance前，就会去涉及respace.py里面的那些东西
@@ -673,9 +683,24 @@ class GaussianDiffusion:
         else:
             sample = out["mean"] + nonzero_mask * th.exp(0.5 * out["log_variance"]) * noise
 
+        if conf.use_ref_imgs: # 如果使用我缝合的使用参考图像引导
+            if resizers is not None:
+                down, up = resizers
 
+            # print(t)
 
-
+            #### ILVR ####
+            if resizers is not None:
+                if t.item() > conf.range_t:
+                    sample = ( sample +
+                    up(
+                        down(
+                            self.q_sample( model_kwargs["ref_img"], t )
+                        )
+                    ) - up(
+                        down( sample )
+                    )
+                                     )
 
         result = {"sample": sample,
                   "pred_xstart": out["pred_xstart"],
@@ -684,6 +709,44 @@ class GaussianDiffusion:
         # print("resultsample",result["sample"])
         return result
 
+
+    def show_pic_of(self,x,str,show=False):
+        """
+        把tensor类型的x保存为str.png，保存目录为path_
+        """
+        path_ = r"./out"
+
+        from PIL import Image
+        import numpy as np
+
+        # 假设 x 是从模型输出的张量
+        # x 的形状：B x C x H x W  (Batch x Channels x Height x Width)
+
+        # 1. 归一化到 [0, 1] 范围内
+        x_normalized = (x + 1) / 2  # 将 [-1, 1] 范围的值映射到 [0, 1]
+
+        # 2. 转换为 NumPy 数组
+        # 这里假设 x 是单通道的图像，或者如果是多通道图像（如RGB），需要处理每个通道
+        x_numpy = x_normalized.squeeze().cpu().numpy()  # 去除 batch 维度，并转到 CPU
+
+        # 如果是灰度图像（1通道）
+        if x_numpy.shape[0] == 1:
+            x_numpy = x_numpy[0]  # 只取单通道
+
+        # 如果是RGB图像（3通道）
+        if x_numpy.shape[0] == 3:
+            x_numpy = np.moveaxis(x_numpy, 0, -1)  # 将 C H W 转为 H W C
+
+        # 3. 转换为 PIL 图像并保存为 PNG
+        image = Image.fromarray((x_numpy * 255).astype(np.uint8))  # 乘以255并转换为整数
+
+        if not os.path.exists(path_):
+            os.makedirs(path_)
+        image.save( os.path.join(path_, str) )
+
+        if show:
+            # 展示图像
+            image.show()
 
 
 #     # ##### ddim #########################################################################################################
