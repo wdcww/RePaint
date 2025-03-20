@@ -59,21 +59,6 @@ def toU8(sample):
 
 
 
-def load_an_image_to_ref_img(image_path, image_size, batch_size):
-#  加载一张图片作为参考图片
-    transform = transforms.Compose([
-        transforms.Resize((image_size, image_size)),
-        transforms.ToTensor(),
-        transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),  # 转换为 [-1, 1]
-    ])
-    img = Image.open(image_path).convert("RGB")
-    img_tensor = transform(img).unsqueeze(0)  # 增加 batch 维度
-    img_tensor = img_tensor.repeat(batch_size, 1, 1, 1)  # 扩展到 batch_size
-    return img_tensor
-
-
-
-
 def main(conf: conf_mgt.Default_Conf):
 
     # print("Start........", conf['name']) # 'name'就是confs里的"name"
@@ -123,26 +108,9 @@ def main(conf: conf_mgt.Default_Conf):
 
         batch_size = model_kwargs["gt"].shape[0]
 
-        if conf.use_ref_imgs:
 
-            # # 这是对此.py定义的load_an_image_to_ref_img()调用的一个例子
-            # ref_img = load_an_image_to_ref_img(r"2022.jpg", image_size=256, batch_size=batch_size)
-            # model_kwargs["ref_img"] = ref_img.to(device)
-
-            # # 但是我没有使用load_an_image_to_ref_img()，为了inpainting，直接使用原图做参考图片
-            model_kwargs["ref_img"] = model_kwargs["gt"] # 参考图片就弄成真实图片
-
-            from resizer import Resizer
-            shape = (batch_size, 3, conf.image_size, conf.image_size)
-            shape_d = (batch_size, 3, int(conf.image_size / conf.down_N), int(conf.image_size / conf.down_N))
-            # print(f"shape: {shape}, shape_d: {shape_d}")
-            down = Resizer(shape, 1 / conf.down_N).to(next(model.parameters()).device)
-            up = Resizer(shape_d, conf.down_N).to(next(model.parameters()).device)
-            resizers = (down, up)
-        else:
-            resizers = None
-
-        if conf.use_ref_texture:
+        # conf.use_ref_texture会决定model_kwarges['texture_map']是否为None
+        if conf.use_ref_texture: #  参考纹理
            model_kwargs['texture_map']=batch['texture_map']
 
         if not conf.use_ddim:
@@ -168,7 +136,6 @@ def main(conf: conf_mgt.Default_Conf):
             device=device,
             progress=show_progress,
             return_all=True,
-            resizers=resizers,
             conf=conf
         )
 

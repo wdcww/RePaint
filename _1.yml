@@ -6,6 +6,7 @@ data:
       # # The following is consistent with image_datasets.py/ load_data_inpa()
       gt_path: ./data/celeba/img
       mask_path: ./data/gt_keep_masks/onemaskpic
+      texture_map: ./ref_edge # # # edge_connect
       batch_size: 1
       image_size: 256 # Resized image(your desired)
 #      class_cond: false
@@ -59,12 +60,13 @@ predict_xstart: false # # # # # # relate with model_mean_type
 
 
 # # 2024.12.7 # #
-use_ref_imgs: true # # # # # IVLR ref_imgs # # #
+use_ref_imgs: false
 down_N: 32
 range_t: 0
 # # # # # #
 
-
+# # 2024.12.17 # && # 2024.12.27 # #
+use_ref_texture: true # # use edge_connect's output
 
 
 # # # # script_util.py/ create_gaussian_diffusion()
@@ -113,5 +115,3 @@ use_new_attention_order: false
 
 #print_estimated_vars: true
 #inpa_inj_sched_prev_cumnoise: false
-
-
