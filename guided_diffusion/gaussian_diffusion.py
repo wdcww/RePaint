@@ -419,24 +419,6 @@ class GaussianDiffusion:
                 model_mean.shape == model_log_variance.shape == pred_xstart.shape == x.shape
         )
 
-        # 纹理引导部分 ##################### ###############################################
-        gt_keep_mask = model_kwargs.get('gt_keep_mask')
-        gt = model_kwargs.get('gt')
-        texture_map = model_kwargs.get('texture_map')
-
-        if texture_map is not None and gt_keep_mask is not None:
-            print("11111")
-            from torchvision.transforms import GaussianBlur
-            blur = GaussianBlur(kernel_size=(5, 5), sigma=(1.0, 1.0))
-            texture_map_smoothed = blur(texture_map)
-            # # # ####################################################################
-            texture_weight = 0.5 # # 可以调整 texture_weight，控制融合强度
-            # # # ####################################################################
-            texture_part = texture_weight * texture_map_smoothed
-
-            pred_xstart = gt_keep_mask * gt + (1 - gt_keep_mask) * (pred_xstart + texture_part)
-        # 纹理引导部分 ##################### ###############################################
-
         return {
             "mean": model_mean,
             "variance": model_variance,
@@ -660,14 +642,23 @@ class GaussianDiffusion:
                 gt_weight = th.sqrt(alpha_cumprod)
                 gt_part = gt_weight * gt
 
-                # # # 这是对于新加的show_pic_of()调用的一个案例:
-                # if t.equal(th.tensor([3], device='cuda:0')):
-                #     self.show_pic_of(gt_part,"origin_x3.png",False)
+                # # # # 这是对于新加的show_pic_of()调用的一个案例:
+                # if t.equal(th.tensor([2], device='cuda:0')):
+                #     self.show_pic_of(gt_part,"x.png",False)
 
                 noise_weight = th.sqrt((1 - alpha_cumprod))
                 noise_part = noise_weight * th.randn_like(x)
 
                 weighed_gt = gt_part + noise_part
+
+                # if t.equal(th.tensor([48], device='cuda:0')):
+                #     self.show_pic_of(x,"noise.png",False)
+                #
+                # if t.equal(th.tensor([0], device='cuda:0')):
+                #     self.show_pic_of( x,"x.png",False)
+                #
+                # if t.equal(th.tensor([0], device='cuda:0')):
+                #     self.show_pic_of( (1 - gt_keep_mask) * x,"one_minus_mask_x.png",False)
 
                 x = (gt_keep_mask * (weighed_gt) + (1 - gt_keep_mask) * (x))
 
@@ -714,7 +705,7 @@ class GaussianDiffusion:
         """
         把tensor类型的x保存为str.png，保存目录为path_
         """
-        path_ = r"./out"
+        path_ = r"./myout_some_state"
 
         from PIL import Image
         import numpy as np

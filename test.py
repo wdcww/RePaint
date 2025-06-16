@@ -18,7 +18,7 @@
 Like image_sample.py, but use a noisy image classifier to guide the sampling
 process towards more realistic images.
 """
-
+import torch
 from PIL import Image
 
 import torchvision.transforms as transforms
@@ -28,6 +28,8 @@ import argparse
 import torch as th
 import torch.nn.functional as F
 import time
+
+from torchvision.transforms import ToPILImage
 
 # from torch_fidelity.metric_fid import calculate_fid
 
@@ -57,7 +59,17 @@ def toU8(sample):
     sample = sample.detach().cpu().numpy()
     return sample
 
+def save_image(tensor_img, path):
+    """
+    tensor_img : [3, H, W]
+    """
+    tensor_img = tensor_img.clamp(min=0.0, max=1.0)
+    pil = ToPILImage()(tensor_img)
+    pil.save(path)
 
+def normalize_image(tensor_img):
+    tensor_img = (tensor_img + 1.0) / 2.0
+    return tensor_img
 
 def main(conf: conf_mgt.Default_Conf):
 
@@ -92,6 +104,8 @@ def main(conf: conf_mgt.Default_Conf):
 
     dl = conf.get_dataloader(dset=dset, dsName=eval_name)
 
+    sample_path = conf.sample_path
+    os.makedirs( sample_path, exist_ok=True )
 
     for batch in iter(dl):
 
@@ -108,15 +122,10 @@ def main(conf: conf_mgt.Default_Conf):
 
         batch_size = model_kwargs["gt"].shape[0]
 
-
-        # conf.use_ref_texture会决定model_kwarges['texture_map']是否为None
-        if conf.use_ref_texture: #  参考纹理
-           model_kwargs['texture_map']=batch['texture_map']
-
-        if not conf.use_ddim:
-            print("test.py--- ddpm --")
-        else:
-            print("test.py--- ddim --")
+        # if not conf.use_ddim:
+        #     print("test.py--- ddpm --")
+        # else:
+        #     print("test.py--- ddim --")
 
         sample_fn = (
             diffusion.p_sample_loop if not conf.use_ddim else diffusion.ddim_sample_loop
@@ -127,31 +136,48 @@ def main(conf: conf_mgt.Default_Conf):
             # print(y) # y目前就是none
             return model(x, t, y if conf.class_cond else None, gt=gt)
 
-        result = sample_fn(
-            model_fn,
-            (batch_size, 3, conf.image_size, conf.image_size), # 传递给 shape 参数的元组
-            clip_denoised=conf.clip_denoised,
-            model_kwargs=model_kwargs,
-            cond_fn=cond_fn,
-            device=device,
-            progress=show_progress,
-            return_all=True,
-            conf=conf
-        )
 
-        srs = toU8(result['sample']) # srs是inpainted
-        lrs = toU8(result.get('gt') * model_kwargs.get('gt_keep_mask') +
-                   (-1) * th.ones_like(result.get('gt')) * (1 - model_kwargs.get('gt_keep_mask'))) #lrs是gt_masked
-        gts = toU8(result['gt'])     # gts是gt
+        base_count = len( os.listdir(sample_path) ) # 含义：当前sample_path目录下已有的图像样本数量。
+        samples = []
+
+        # ___________________________________________
+        for n in range(conf.n_iter):
+            result = sample_fn(
+                model_fn,
+                (batch_size, 3, conf.image_size, conf.image_size), # 传递给 shape 参数的元组
+                clip_denoised=conf.clip_denoised,
+                model_kwargs=model_kwargs,
+                cond_fn=cond_fn,
+                device=device,
+                progress=show_progress,
+                return_all=True,
+                conf=conf
+            )
+
+            inpainted = normalize_image(result["sample"])
+            samples.append(inpainted.detach().cpu())
+        # ___________________________________________
+        samples = torch.cat(samples)
+        # save generations
+        for sample in samples:
+            save_image(sample, os.path.join(sample_path, f"{base_count:05}.png"))
+            base_count += 1
+
+        # srs = toU8(result['sample']) # srs是inpainted
+
+        lrs = toU8(result.get('gt') * model_kwargs.get('gt_keep_mask') + (-1) * th.ones_like(result.get('gt')) * (1 - model_kwargs.get('gt_keep_mask'))) #lrs是gt_masked
+        gts = toU8(result['gt']) # gts是gt
         gt_keep_masks = toU8((model_kwargs.get('gt_keep_mask') * 1 - 1)) #gt_keep_masks是gt_keep_mask
 
         conf.eval_imswrite(
-            srs=srs, gts=gts, lrs=lrs, gt_keep_masks=gt_keep_masks,
+            lrs=lrs,
+            gts=gts,
+            gt_keep_masks=gt_keep_masks,
             img_names=batch['GT_name'], dset=dset, name=eval_name, verify_same=False)
 
-        # # gt_keep_masks()就先不看了
+        # # # 全的
         # conf.eval_imswrite(
-        #     srs=srs, gts=gts, lrs=lrs,
+        #     srs=srs, gts=gts, lrs=lrs,gt_keep_masks=gt_keep_masks,
         #     img_names=batch['GT_name'], dset=dset, name=eval_name, verify_same=False)
 
         # # gt和gt_keep_masks就先不看了

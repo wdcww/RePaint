@@ -38,7 +38,6 @@ def load_data_inpa(
     *,
     gt_path=None,
     mask_path=None,
-    texture_map=None,  # 参考纹理edge
     batch_size,
     image_size,
     class_cond=False,
@@ -72,32 +71,34 @@ def load_data_inpa(
 
     gt_dir = os.path.expanduser(gt_path)
     mask_dir = os.path.expanduser(mask_path)
-    texture_map_dir=os.path.expanduser(texture_map)  # 参考纹理edge
+
 
     gt_paths = _list_image_files_recursively(gt_dir)
     mask_paths = _list_image_files_recursively(mask_dir)
-    texture_paths = _list_image_files_recursively(texture_map_dir)  # 参考纹理edge
 
-    # # 如果只有一张mask图，重复使用
-    # if len(mask_paths) == 1 and len(gt_paths) > 1:
-    #     mask_paths = [mask_paths[0]] * len(gt_paths)
 
-    # # # 如果 mask_paths 少于 gt_paths，则根据 mask_paths 数量裁剪 gt_paths
+    # 如果只有一张mask图，重复使用
+    if len(mask_paths) == 1 and len(gt_paths) > 1:
+        mask_paths = [mask_paths[0]] * len(gt_paths)
+
     if len(mask_paths) < len(gt_paths):
+        # 如果 mask_paths 少于 gt_paths，则根据 mask_paths 数量裁剪 gt_paths
         gt_paths = gt_paths[:len(mask_paths)]
+    elif len(gt_paths) < len(mask_paths):
+        # 如果 gt_paths 少于 mask_paths
+        mask_paths = mask_paths[:len(gt_paths)]
+
     # # 如果 mask_paths 少于 gt_paths，则随机选择与 mask_paths 数量相同的 gt_paths
     # if len(mask_paths) < len(gt_paths):
     #     gt_paths = random.sample(gt_paths, len(mask_paths))
 
 
 
-    # # # 如果 texture_paths 少于 gt_paths，则根据 texture_paths 数量裁剪 gt_paths
-    if len(texture_paths) < len(gt_paths):
-        gt_paths = gt_paths[:len(texture_paths)]
+
 
 
     assert len(gt_paths) == len(mask_paths)
-    assert len(gt_paths) == len(texture_paths) # gt图和对应的纹理图才是应该真的一致
+
 
     classes = None
     if class_cond:
@@ -107,7 +108,6 @@ def load_data_inpa(
         image_size,
         gt_paths=gt_paths,
         mask_paths=mask_paths,
-        texture_paths = texture_paths,  # 参考纹理edge
         classes=classes,
         shard=0,
         num_shards=1,
@@ -155,7 +155,6 @@ class ImageDatasetInpa(Dataset):
         resolution,
         gt_paths,
         mask_paths,
-        texture_paths,  # 参考纹理edge
         classes=None,
         shard=0,
         num_shards=1,
@@ -171,11 +170,9 @@ class ImageDatasetInpa(Dataset):
 
         gt_paths = sorted(gt_paths)[offset:]
         mask_paths = sorted(mask_paths)[offset:]
-        texture_paths = sorted(texture_paths)[offset:]  # 参考纹理edge
 
         self.local_gts = gt_paths[shard:][::num_shards]
         self.local_masks = mask_paths[shard:][::num_shards]
-        self.local_texture = texture_paths[shard:][::num_shards]  # 参考纹理edge
 
         self.local_classes = None if classes is None else classes[shard:][::num_shards]
 
@@ -206,7 +203,6 @@ class ImageDatasetInpa(Dataset):
         'GT_name': name,      # 真实图像的文件名
         'gt_keep_mask': arr_mask,  # 处理后的掩码
         'y': 类标签 (可选)    # 类标签 (_____________________这里还没有加上_____________________)
-        'texture_map': # 我添加的纹理图   # 参考纹理edge
         }
         """
         gt_path = self.local_gts[idx]
@@ -215,24 +211,18 @@ class ImageDatasetInpa(Dataset):
         mask_path = self.local_masks[idx]
         pil_mask = self.imread(mask_path)
 
-        texture_path = self.local_texture[idx]  # 参考纹理edge
-        pil_texture =self.imread(texture_path)  # 参考纹理edge
-
         if self.random_crop:
             raise NotImplementedError()
         else:
             arr_gt = center_crop_arr(pil_gt, self.resolution)
             arr_mask = center_crop_arr(pil_mask, self.resolution)
-            arr_texture = center_crop_arr(pil_texture, self.resolution)  # 参考纹理edge
 
         if self.random_flip and random.random() < 0.5:
             arr_gt = arr_gt[:, ::-1]
             arr_mask = arr_mask[:, ::-1]
-            arr_texture = arr_texture[:, ::-1]  # 参考纹理edge
 
         arr_gt = arr_gt.astype(np.float32) / 127.5 - 1
         arr_mask = arr_mask.astype(np.float32) / 255.0
-        arr_texture = arr_texture.astype(np.float32) /255.0 # 参考纹理edge
 
         out_dict = {}
         if self.local_classes is not None:
@@ -244,7 +234,6 @@ class ImageDatasetInpa(Dataset):
                 'GT': np.transpose(arr_gt, [2, 0, 1]),
                 'GT_name': name,
                 'gt_keep_mask': np.transpose(arr_mask, [2, 0, 1]),
-                'texture_map': np.transpose(arr_texture, [2,0,1])  # 参考纹理edge
             }
         else:
             raise NotImplementedError()

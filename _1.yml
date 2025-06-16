@@ -4,9 +4,9 @@ data:
     paper_face_mask:  #conf_base.py/ dsName
       mask_loader: true
       # # The following is consistent with image_datasets.py/ load_data_inpa()
-      gt_path: ./data/celeba/img
-      mask_path: ./data/gt_keep_masks/onemaskpic
-      texture_map: ./ref_edge # # # edge_connect
+      gt_path: ./mydata/gt
+      mask_path: ./mydata/mask
+#      texture_map: ./ref_edge # # # edge_connect
       batch_size: 1
       image_size: 256 # Resized image(your desired)
 #      class_cond: false
@@ -15,14 +15,19 @@ data:
       random_flip: false
       return_dataloader: true
       return_dict: true
-      max_len: 1 # # image_dataset.py/ __len__()
+      max_len: 3 # # image_dataset.py/ __len__()
       drop_last: false
       offset: 0
       paths: # # # # # # # # # # # # # #
-        srs: ./2025/inpainted
-        lrs: ./2025/gt_masked
-        gts: ./2025/gt
-        gt_keep_masks: ./2025/gt_keep_mask
+#        srs: ./myout/test/inpainted
+        lrs: ./myout/test/gt_masked
+        gts: ./myout/test/gt
+        gt_keep_masks: ./myout/test/gt_keep_mask
+
+# Each mask image generates n_iter images
+n_iter: 2
+sample_path: ./myout/test/inpainted
+
 
 show_progress: true
 
@@ -36,11 +41,11 @@ model_path: ./data/pretrained/celeba256_250000.pt
 diffusion_steps: 1000
 noise_schedule: linear
 
-timestep_respacing: '50' # respace.py
+timestep_respacing: '250' # respace.py
 schedule_jump_params:
-  t_T: 50 # scheduler.py
+  t_T: 250 # scheduler.py
   jump_length: 10
-  jump_n_sample: 2
+  jump_n_sample: 2 # more than 2
 
 # # inpainting # #
 inpa_inj_sched_prev: true # # # # unmasked + masked
@@ -59,14 +64,14 @@ predict_xstart: false # # # # # # relate with model_mean_type
 # # # # # # # # #
 
 
-# # 2024.12.7 # #
-use_ref_imgs: false
-down_N: 32
-range_t: 0
-# # # # # #
+## # 2024.12.7 # #
+#use_ref_imgs: false
+#down_N: 32
+#range_t: 0
+## # # # # #
 
 # # 2024.12.17 # && # 2024.12.27 # #
-use_ref_texture: true # # use edge_connect's output
+#use_ref_texture: false # # use edge_connect's output # #
 
 
 # # # # script_util.py/ create_gaussian_diffusion()
