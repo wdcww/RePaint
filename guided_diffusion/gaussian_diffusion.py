@@ -238,18 +238,18 @@ class GaussianDiffusion:
     #                   Get the distribution q(x_t | x_0).
 
 
-    # def q_sample(self, x_start, t, noise=None):
-    #     """
-    #     sample from distribution q(x_t | x_0).
-    #     """
-    #     if noise is None:
-    #         noise = th.randn_like(x_start)
-    #     assert noise.shape == x_start.shape
-    #     return (
-    #             _extract_into_tensor(self.sqrt_alphas_cumprod, t, x_start.shape) * x_start
-    #             + _extract_into_tensor(self.sqrt_one_minus_alphas_cumprod, t, x_start.shape)
-    #             * noise
-    #     )
+    def q_sample(self, x_start, t, noise=None):
+        """
+        sample from distribution q(x_t | x_0).
+        """
+        if noise is None:
+            noise = th.randn_like(x_start)
+        assert noise.shape == x_start.shape
+        return (
+                _extract_into_tensor(self.sqrt_alphas_cumprod, t, x_start.shape) * x_start
+                + _extract_into_tensor(self.sqrt_one_minus_alphas_cumprod, t, x_start.shape)
+                * noise
+        )
 
 
 
@@ -642,23 +642,23 @@ class GaussianDiffusion:
                 gt_weight = th.sqrt(alpha_cumprod)
                 gt_part = gt_weight * gt
 
-                # # # # 这是对于新加的show_pic_of()调用的一个案例:
+                # # # 这是对于新加的show_pic_of()调用的一个案例:
                 # if t.equal(th.tensor([2], device='cuda:0')):
-                #     self.show_pic_of(gt_part,"x.png",False)
+                #     self.show_pic_of(gt_part,"gt.png",False)
 
                 noise_weight = th.sqrt((1 - alpha_cumprod))
                 noise_part = noise_weight * th.randn_like(x)
 
                 weighed_gt = gt_part + noise_part
 
-                # if t.equal(th.tensor([48], device='cuda:0')):
-                #     self.show_pic_of(x,"noise.png",False)
-                #
-                # if t.equal(th.tensor([0], device='cuda:0')):
-                #     self.show_pic_of( x,"x.png",False)
-                #
-                # if t.equal(th.tensor([0], device='cuda:0')):
-                #     self.show_pic_of( (1 - gt_keep_mask) * x,"one_minus_mask_x.png",False)
+                if t.equal(th.tensor([10], device='cuda:0')):
+                    self.show_pic_of(x,"10.png",False)
+
+                if t.equal(th.tensor([0], device='cuda:0')):
+                    self.show_pic_of( x,"x0_pred.png",False)
+
+                if t.equal(th.tensor([10], device='cuda:0')):
+                    self.show_pic_of( (1 - gt_keep_mask) * x,"one_minus_mask_x10.png",False)
 
                 x = (gt_keep_mask * (weighed_gt) + (1 - gt_keep_mask) * (x))
 

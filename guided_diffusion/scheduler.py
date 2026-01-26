@@ -156,8 +156,8 @@ def get_schedule_jump_test(to_supplement=False):
        减少jump_n_sample以减少重新采样的次数。
        不是从一开始就应用重采样，而是通过设置 start_resampling 在特定时间之后应用重采样。
        """
-    ts = get_schedule_jump(t_T=50,
-                           jump_length=10, jump_n_sample=2
+    ts = get_schedule_jump(t_T=250,
+                           jump_length=1, jump_n_sample=1
                            )
     print(len(ts))
     print(ts) ####################################################### print一下！
